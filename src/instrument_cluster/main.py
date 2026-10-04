@@ -10,12 +10,12 @@ from .config import Config, ConfigManager
 from .core.plugin_system.plugin_manager import PluginManager
 from .core.system import unhealthy
 from .core.system.wifi_manager import WifiManager
-from .core.vehicle.vehicle_bus import VehicleBus
 from .core.vehicle.accel_recorder import (
     AccelRunRecorder,
     AccelRunStore,
     default_runs_dir,
 )
+from .core.vehicle.vehicle_bus import VehicleBus
 from .extensions import runtime as extensions
 from .logger import Logger
 from .peripherals.display import Display
@@ -76,6 +76,7 @@ def run(conf: Config) -> None:
     pygame.mouse.set_visible(False)
 
     display = None
+    crashed = False
     try:
         # Initialize the rendering pipeline. Display resolves which physical
         # panel we're driving and registers it process-wide so input mapping
@@ -219,6 +220,12 @@ def run(conf: Config) -> None:
         if accel_recorder is not None:
             logger.info("accel logging on — runs go to %s", default_runs_dir())
 
+        # Smoke test of the frozen desktop builds (pc-release.yml): run this
+        # many frames, then shut down as if asked to. Unset on every real
+        # launch.
+        exit_after_frames = int(os.environ.get("IC_EXIT_AFTER_FRAMES", "0"))
+        frames = 0
+
         while state_manager.is_running:
             dt = clock.tick(60) / 1000
             stall_detector.beat()
@@ -277,9 +284,14 @@ def run(conf: Config) -> None:
             window_manager.update(dt)
             display.present(window_manager.draw(main_surface))
 
+            frames += 1
+            if frames == exit_after_frames:
+                state_manager.is_running = False
+
     except Exception:
         logger.exception("Critical system error")
         # don't sys.exit here, let finally clean up first
+        crashed = True
 
     finally:
         logger.info("Cleaning up resources...")
@@ -296,6 +308,12 @@ def run(conf: Config) -> None:
         if display is not None:
             display.close()
         pygame.quit()
+
+    if crashed:
+        # Cleaned up; now make the failure visible to whoever launched us. A
+        # zero exit here let desktop builds that died at startup ship for
+        # releases on end: no crash report, no failed CI step, nothing.
+        sys.exit(1)
 
 
 def main() -> None:
