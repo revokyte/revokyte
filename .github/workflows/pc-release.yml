@@ -109,6 +109,32 @@ jobs:
             echo "::warning::actool could not compile Revokyte.icon; shipping legacy icns only"
           fi
 
+      # Launch the binary that ships, headless, for two seconds of frames.
+      # PyInstaller only bundles imports it can see statically, so a module
+      # imported by name at runtime can be missing from a build that compiled
+      # fine: v0.2.27 to v0.3.0 shipped without the skin modules and died at
+      # startup on every platform. The app exits non-zero on any error while
+      # starting or rendering. The log goes to a file because the windowed
+      # Windows build has no stdout.
+      - name: Smoke test
+        shell: bash
+        timeout-minutes: 5
+        env:
+          SDL_VIDEODRIVER: dummy
+          IC_EXIT_AFTER_FRAMES: "120"
+        run: |
+          case "$RUNNER_OS" in
+            macOS) APP=dist/Revokyte.app/Contents/MacOS/Revokyte ;;
+            Windows) APP=dist/Revokyte.exe ;;
+            *) APP=dist/Revokyte ;;
+          esac
+          export IC_CONFIG_PATH="$RUNNER_TEMP/smoke-config.json"
+          export IC_DEBUG_LOG="$RUNNER_TEMP/smoke.log"
+          status=0
+          "$APP" || status=$?
+          cat "$IC_DEBUG_LOG" || true
+          exit $status
+
       - name: Package (macOS)
         if: runner.os == 'macOS'
         run: ditto -c -k --keepParent dist/Revokyte.app "dist/$ARTIFACT.zip"
