@@ -30,6 +30,10 @@ datas += collect_data_files(
 
 hiddenimports = (
     collect_submodules("instrument_cluster.plugins")
+    # Skin modules are imported by name from a string table (PEP 562 lazy
+    # loading in ui/skins/__init__.py), invisible to PyInstaller's analysis.
+    # Without them the app dies at startup resolving the active skin.
+    + collect_submodules("instrument_cluster.ui.skins")
     # Imported lazily (behind the feed descriptor), so spelled out here.
     + collect_submodules("granturismo")
 )
