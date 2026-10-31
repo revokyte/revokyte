@@ -29,6 +29,8 @@ def snap_pixel_font(v: float) -> int:
 def _scale_scalar(value, axis: str, fx: float, fy: float, fu: float):
     if axis in ("family", "color"):
         return value  # FontFamily / Color member name — resolution-independent
+    if axis == "const":
+        return value  # counts, ratios, and string choices like rpm_variant
     sign = -1 if value < 0 else 1
     mag = abs(value)
     if axis == "x":
@@ -41,8 +43,6 @@ def _scale_scalar(value, axis: str, fx: float, fy: float, fu: float):
         return snap_even(mag * fu)
     if axis == "font_pixel":
         return snap_pixel_font(mag * fu)
-    if axis == "const":
-        return value
     raise ValueError(f"scalar field with axis {axis!r}")
 
 
